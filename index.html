@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Decode My Friendship 🎮 — Step by Step</title>
+<style>
+  /* (keep your CSS) */
+  body {font-family:'Poppins',sans-serif;background:linear-gradient(135deg,#1e1f47,#3f51b5);color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;overflow:hidden}
+  h1,h2{text-shadow:0 0 15px #fff}
+  button{background:#00bcd4;border:none;color:white;padding:10px 20px;margin:10px;border-radius:10px;font-size:16px;cursor:pointer;transition:0.3s}
+  button:hover{background:#0097a7;transform:scale(1.05)}
+  .hidden{display:none}
+  .game-container{width:90%;max-width:550px;background:rgba(255,255,255,0.1);padding:25px;border-radius:20px;text-align:center;box-shadow:0 0 15px rgba(255,255,255,0.3)}
+  .tileRow{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}
+  .letter{min-width:40px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.03);cursor:pointer;text-align:center;font-weight:800}
+  .picked{background:rgba(124,58,237,0.14);}
+  .fade{animation:fade 2s forwards;}
+  @keyframes fade{from{opacity:1;}to{opacity:0;}}
+  .starsPanel{display:flex;justify-content:center;gap:6px;margin-top:12px}
+  .star{font-size:24px;opacity:0.15;transition:0.3s}
+  .star.on{opacity:1;transform:scale(1.1)}
+</style>
+</head>
+<body>
+<div class="game-container" id="main">
+  <h1>🎁 Decode My Friendship 🎮</h1>
+  <p>Complete tasks, unscramble clues, and reveal the hidden message!</p>
+  <div class="starsPanel" id="starsPanel">
+    <div class="star" data-i="0">⭐</div>
+    <div class="star" data-i="1">⭐</div>
+    <div class="star" data-i="2">⭐</div>
+    <div class="star" data-i="3">⭐</div>
+    <div class="star" data-i="4">⭐</div>
+  </div>
+  <div id="content"></div>
+</div>
+
+<script>
+/* -------------------------
+   CONFIG: put logged-in user id here
+   In production, set this dynamically (e.g. from server-rendered template or JWT)
+   ------------------------- */
+const USER_ID = 1; // replace with real logged-in user id
+
+/* -------------------------
+   Backend API base URL
+   ------------------------- */
+const API_BASE = 'http://localhost:5000/api';
+
+const GAME = {
+  index:0,
+  stars:0,
+  levels:[
+    {id:'l1',type:'quiz',question:'What is 2+2?',answer:'4',word:'I'},
+    {id:'l2',type:'riddle',question:'I help you trust what you cannot see. What am I?',answer:'FAITH',word:'DEEPLY'},
+    {id:'l3',type:'memory',sequence:['🌟','💧','🔥'],word:'REGRET'},
+    {id:'l4',type:'typing',question:'Type the possessive pronoun for yourself:',answer:'MY',word:'MY'},
+    {id:'l5',type:'typing',question:'Type the last word of your actions:',answer:'ACTIONS',word:'ACTIONS'}
+  ],
+  finalSentence:'I DEEPLY REGRET MY ACTIONS',
+  solvedWords:[false,false,false,false,false]
+};
+
+const content=document.getElementById('content');
+const starsPanel=document.getElementById('starsPanel');
+
+function startGame(){
+  GAME.index=0;
+  GAME.stars=0;
+  GAME.solvedWords=[false,false,false,false,false];
+  updateStars();
+  startLevel(GAME.index);
+}
+
+function updateStars(){
+  starsPanel.querySelectorAll('.star').forEach((el,i)=>{
+    if(i<GAME.stars) el.classList.add('on'); else el.classList.remove('on');
+  });
+}
+
+// ---------- LEVEL START ----------
+function startLevel(i){
+  const lvl=GAME.levels[i];
+  content.innerHTML=`<h2>Level ${i+1}</h2><div id="taskArea"></div>`;
+  if(lvl.type==='quiz') playQuiz(lvl);
+  else if(lvl.type==='riddle') playRiddle(lvl);
+  else if(lvl.type==='memory') playMemory(lvl);
+  else if(lvl.type==='typing') playTyping(lvl);
+}
+
+// ---------- QUIZ ----------
+function playQuiz(lvl){
+  const taskArea=document.getElementById('taskArea');
+  taskArea.innerHTML=`
+  <div>${lvl.question}</div>
+  <input id="ans" placeholder="Type answer">
+  <button id="sub">Submit</button>
+  <div id="res" style="margin-top:8px;color:#ffcccb"></div>
+  `;
+  document.getElementById('sub').onclick=()=>{
+    const val=document.getElementById('ans').value.trim().toUpperCase();
+    if(val===lvl.answer.toUpperCase()) showClue(lvl);
+    else document.getElementById('res').textContent='Incorrect. Try again.';
+  };
+}
+
+// ---------- RIDDLE ----------
+function playRiddle(lvl){
+  const taskArea=document.getElementById('taskArea');
+  taskArea.innerHTML=`
+  <div>${lvl.question}</div>
+  <input id="ans" placeholder="Type answer">
+  <button id="sub">Submit</button>
+  <div id="res" style="margin-top:8px;color:#ffcccb"></div>
+  `;
+  document.getElementById('sub').onclick=()=>{
+    const val=document.getElementById('ans').value.trim().toUpperCase();
+    if(val===lvl.answer.toUpperCase()) showClue(lvl);
+    else document.getElementById('res').textContent='Incorrect. Try again.';
+  };
+}
+
+// ---------- MEMORY ----------
+function playMemory(lvl){
+  const taskArea=document.getElementById('taskArea');
+  taskArea.innerHTML=`
+  <div>Remember the sequence:</div>
+  <div id="seq" style="font-size:24px">${lvl.sequence.join(' ')}</div>
+  <button id="startMem">Hide & Answer</button>
+  <div id="memAnsArea" style="display:none">
+    <input id="ans" placeholder="Type the middle emoji">
+    <button id="sub">Submit</button>
+    <div id="res" style="margin-top:8px;color:#ffcccb"></div>
+  </div>
+  `;
+  document.getElementById('startMem').onclick=()=>{
+    document.getElementById('seq').textContent='???';
+    document.getElementById('memAnsArea').style.display='block';
+  };
+  document.getElementById('sub').onclick=()=>{
+    const val=document.getElementById('ans').value.trim();
+    if(val===lvl.sequence[1]) showClue(lvl);
+    else document.getElementById('res').textContent='Incorrect. Try again.';
+  };
+}
+
+// ---------- TYPING ----------
+function playTyping(lvl){
+  const taskArea=document.getElementById('taskArea');
+  taskArea.innerHTML=`
+  <div>${lvl.question}</div>
+  <input id="ans" placeholder="Type answer">
+  <button id="sub">Submit</button>
+  <div id="res" style="margin-top:8px;color:#ffcccb"></div>
+  `;
+  document.getElementById('sub').onclick=()=>{
+    const val=document.getElementById('ans').value.trim().toUpperCase();
+    if(val===lvl.answer.toUpperCase()) showClue(lvl);
+    else document.getElementById('res').textContent='Incorrect. Try again.';
+  };
+}
+
+// ---------- SHOW CLUE & UNSCRAMBLE ----------
+function scrambleWord(w){
+  const arr=w.split('');
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  if(arr.join('')===w && arr.length>1) arr.push(arr.shift());
+  return arr.join('');
+}
+
+function showClue(lvl){
+  content.innerHTML=`<h3>Unscramble this clue:</h3>
+  <div id="built" style="margin-bottom:10px;font-weight:800;font-size:20px"></div>
+  <div class="tileRow" id="tiles"></div>
+  <button id="check">Check</button>
+  <button id="clear">Clear</button>
+  <div id="res" style="margin-top:8px;color:#ffcccb"></div>
+  `;
+  const letters=scrambleWord(lvl.word.replace(/\s+/g,'')).split('');
+  const built=document.getElementById('built');
+  const tiles=document.getElementById('tiles');
+  const tileState=[];
+  letters.forEach((L,i)=>{
+    const t=document.createElement('div');
+    t.className='letter';
+    t.textContent=L;
+    t.onclick=()=>{
+      if(tileState[i]) return;
+      tileState[i]=true;
+      t.classList.add('picked');
+      built.textContent=(built.textContent||'')+L;
+    };
+    tiles.appendChild(t);
+  });
+
+  document.getElementById('check').onclick=()=>{
+    if(built.textContent.toUpperCase()===lvl.word.replace(/\s+/g,'').toUpperCase()){
+      document.getElementById('res').style.color='#10b981';
+      document.getElementById('res').textContent='Correct! ⭐';
+      GAME.solvedWords[GAME.index]=true;
+      GAME.stars++;
+      updateStars();
+
+      // Important: notify backend with the updated stars and completed levels
+      notifyServerStarUpdate(GAME.stars, GAME.solvedWords);
+
+      setTimeout(()=>nextLevel(),800);
+    } else {
+      document.getElementById('res').style.color='#ff6666';
+      document.getElementById('res').textContent='Incorrect — try again.';
+    }
+  };
+
+  document.getElementById('clear').onclick=()=>{
+    built.textContent='';
+    tileState.fill(false);
+    tiles.querySelectorAll('.letter').forEach(el=>el.classList.remove('picked'));
+    document.getElementById('res').textContent='';
+  };
+}
+
+// ---------- NEXT LEVEL ----------
+function nextLevel(){
+  GAME.index++;
+  if(GAME.index<GAME.levels.length){
+    startLevel(GAME.index);
+  } else showFinal();
+}
+
+// ---------- FINAL MESSAGE ----------
+function showFinal(){
+  content.innerHTML=`<h2>🎉 Congratulations!</h2>
+  <p>You decoded all clues!</p>
+  <div style="margin-top:12px;font-weight:800;font-size:18px;color:#ffd700">${GAME.finalSentence}</div>
+  <div style="margin-top:8px;color:#fff2a8">HAPPY BIRTHDAY — Keep shining! 🎂</div>
+  `;
+  // Final sync
+  notifyServerStarUpdate(GAME.stars, GAME.solvedWords);
+}
+
+/* -------------------------
+   Notify backend function
+   ------------------------- */
+function notifyServerStarUpdate(stars, solvedWords) {
+  const completed = solvedWords.map(s=>s ? '1' : '0').join(''); // simple serialization
+  fetch(`${API_BASE}/update-stars`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: USER_ID,
+      stars: stars,
+      completed_levels: completed
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    console.log('Server response:', data);
+  })
+  .catch(err => {
+    console.error('Failed to update server:', err);
+  });
+}
+
+// ---------- START GAME ----------
+startGame();
+</script>
+</body>
+</html>
